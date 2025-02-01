@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة تحكم حملة رمضان 2025</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2d2d2d;
+            --text-primary: #ffffff;
+            --text-secondary: #b3b3b3;
+            --border: #404040;
+
+            /* Updated color scheme */
+            --orange: #ff9f43;
+            --cyan: #00cfe8;
+            --green: #28c76f;
+            --yellow: #ffc107;
+
+            --orange-light: rgba(255, 159, 67, 0.2);
+            --cyan-light: rgba(0, 207, 232, 0.2);
+            --green-light: rgba(40, 199, 111, 0.2);
+            --yellow-light: rgba(255, 193, 7, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: system-ui, -apple-system, sans-serif;
+            line-height: 1.5;
+            padding: 2rem;
+        }
+
+        .dashboard {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 1.5rem;
+            background-color: var(--bg-secondary);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .upload-section {
+            background-color: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background-color: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-card.orange { border-top: 4px solid var(--orange); }
+        .stat-card.cyan { border-top: 4px solid var(--cyan); }
+        .stat-card.green { border-top: 4px solid var(--green); }
+        .stat-card.yellow { border-top: 4px solid var(--yellow); }
+
+        .stat-value {
+            font-size: 2rem;
+            font-weight: bold;
+            margin: 0.5rem 0;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        .stat-change {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            margin-top: 0.5rem;
+        }
+
+        .positive { background-color: var(--green-light); color: var(--green); }
+        .negative { background-color: var(--orange-light); color: var(--orange); }
+
+        .file-input {
+            display: none;
+        }
+
+        .file-input-label {
+            background-color: var(--cyan);
+            color: var(--text-primary);
+            padding: 0.75rem 1.5rem;
+            border-radius: 4px;
+            cursor: pointer;
+            display: inline-block;
+            transition: background-color 0.3s;
+        }
+
+        .file-input-label:hover {
+            opacity: 0.9;
+        }
+
+        .status-message {
+            margin-top: 1rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            display: none;
+        }
+
+        .status-message.success {
+            background-color: var(--green-light);
+            color: var(--green);
+            display: block;
+        }
+
+        .status-message.error {
+            background-color: var(--orange-light);
+            color: var(--orange);
+            display: block;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 2rem;
+        }
+
+        .chart-container {
+            background-color: var(--bg-secondary);
+            padding: 1.5rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+        }
+
+        .chart-title {
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+
+        .chart-subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 300px !important;
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .stat-card {
+                padding: 1rem;
+            }
+
+            .stat-value {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <div class="header">
+            <h1>لوحة تحكم حملة رمضان 2025</h1>
+            <p>تحليل مستهدفات الأقسام التسويقية</p>
+        </div>
+
+        <div class="upload-section">
+            <div class="file-input-wrapper">
+                <label class="file-input-label">
+                    اختر ملف CSV
+                    <input type="file" class="file-input" accept=".csv" id="csvFile">
+                </label>
+            </div>
+            <div id="statusMessage" class="status-message"></div>
+        </div>
+
+        <!-- Summary Statistics -->
+        <div class="stats-grid">
+            <div class="stat-card orange">
+                <div class="stat-label">إجمالي المبيعات</div>
+                <div class="stat-value" id="totalSales">1.2M ريال</div>
+                <div class="stat-change positive">▲ 15.8%</div>
+            </div>
+            <div class="stat-card cyan">
+                <div class="stat-label">معدل التحويل</div>
+                <div class="stat-value" id="conversionRate">4.8%</div>
+                <div class="stat-change positive">▲ 2.3%</div>
+            </div>
+            <div class="stat-card green">
+                <div class="stat-label">عدد العملاء الجدد</div>
+                <div class="stat-value" id="newCustomers">2,845</div>
+                <div class="stat-change positive">▲ 12.5%</div>
+            </div>
+            <div class="stat-card yellow">
+                <div class="stat-label">متوسط قيمة الطلب</div>
+                <div class="stat-value" id="avgOrderValue">425 ريال</div>
+                <div class="stat-change negative">▼ 3.2%</div>
+            </div>
+        </div>
+
+        <div class="charts-grid">
+            <div class="chart-container">
+                <h2 class="chart-title">المبيعات اليومية</h2>
+                <p class="chart-subtitle">تتبع المبيعات على مدار الشهر</p>
+                <canvas id="salesChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">توزيع الميزانية التسويقية</h2>
+                <p class="chart-subtitle">تقسيم الميزانية حسب القنوات</p>
+                <canvas id="budgetChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">أداء القنوات التسويقية</h2>
+                <p class="chart-subtitle">معدل التفاعل والتحويل لكل قناة</p>
+                <canvas id="channelsChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">تحليل الحملات</h2>
+                <p class="chart-subtitle">مقارنة أداء الحملات المختلفة</p>
+                <canvas id="campaignsChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">توزيع المبيعات حسب المنطقة</h2>
+                <p class="chart-subtitle">التوزيع الجغرافي للمبيعات</p>
+                <canvas id="regionChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h2 class="chart-title">تحليل فئات المنتجات</h2>
+                <p class="chart-subtitle">أداء المبيعات حسب الفئة</p>
+                <canvas id="categoryChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Chart.js global configuration
+        Chart.defaults.color = '#b3b3b3';
+        Chart.defaults.borderColor = '#404040';
+
+        // Color schemes
+        const colors = {
+            orange: '#ff9f43',
+            cyan: '#00cfe8',
+            green: '#28c76f',
+            yellow: '#ffc107',
+            orangeLight: 'rgba(255, 159, 67, 0.2)',
+            cyanLight: 'rgba(0, 207, 232, 0.2)',
+            greenLight: 'rgba(40, 199, 111, 0.2)',
+            yellowLight: 'rgba(255, 193, 7, 0.2)'
+        };
+
+        let charts = {};
+
+        function initializeCharts(data = null) {
+            // Destroy existing charts
+            Object.values(charts).forEach(chart => chart.destroy());
+
+            // Sales Chart (Line)
+            charts.salesChart = new Chart(document.getElementById('salesChart'), {
+                type: 'line',
+                data: {
+                    labels: ['1 رمضان', '5 رمضان', '10 رمضان', '15 رمضان', '20 رمضان', '25 رمضان', '30 رمضان'],
+                    datasets: [{
+                        label: 'المبيعات اليومية',
+                        data: [12000, 19000, 15000, 25000, 22000, 30000, 28000],
+                        borderColor: colors.orange,
+                        backgroundColor: colors.orangeLight,
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    }
+                }
+            });
+
+            // Budget Chart (Doughnut)
+            charts.budgetChart = new Chart(document.getElementById('budgetChart'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['وسائل التواصل', 'الإعلانات المدفوعة', 'التسويق بالمحتوى', 'التسويق بالبريد'],
+                    datasets: [{
+                        data: [40, 25, 20, 15],
+                        backgroundColor: [colors.orange, colors.cyan, colors.green, colors.yellow],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                }
+            });
+
+            // Channels Performance (Bar)
+            charts.channelsChart = new Chart(document.getElementById('channelsChart'), {
+                type: 'bar',
+                data: {
+                    labels: ['انستغرام', 'تويتر', 'فيسبوك', 'سناب شات', 'تيك توك'],
+                    datasets: [{
+                        label: 'معدل التفاعل',
+                        data: [65, 85, 45, 75, 90],
+                        backgroundColor: [
+                            colors.orange,
+                            colors.cyan,
+                            colors.green,
+                            colors.yellow,
+                            colors.orange
+                        ],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Campaigns Analysis (Radar)
+            charts.campaignsChart = new Chart(document.getElementById('campaignsChart'), {
+                type: 'radar',
+                data: {
+                    labels: ['الوصول', 'التفاعل', 'التحويل', 'العائد', 'رضا العملاء'],
+                    datasets: [{
+                        label: 'حملة رمضان',
+                        data: [90, 85, 75, 80, 85],
+                        backgroundColor: colors.orangeLight,
+                        borderColor: colors.orange,
+                    }, {
+                        label: 'حملة العيد',
+                        data: [85, 80, 70, 75, 80],
+                        backgroundColor: colors.cyanLight,
+                        borderColor: colors.cyan,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: {
+                                display: false
+                            },
+                            suggestedMin: 50,
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            });
+
+            // Region Sales Distribution (Pie)
+            charts.regionChart = new Chart(document.getElementById('regionChart'), {
+                type: 'pie',
+                data: {
+                    labels: ['الرياض', 'جدة', 'الدمام', 'المدينة', 'مكة'],
+                    datasets: [{
+                        data: [30, 25, 20, 15, 10],
+                        backgroundColor: [colors.orange, colors.cyan, colors.green, colors.yellow, colors.orangeLight],
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                }
+            });
+
+            // Category Performance (Bubble)
+            charts.categoryChart = new Chart(document.getElementById('categoryChart'), {
+                type: 'bubble',
+                data: {
+                    datasets: [{
+                        label: 'المبيعات حسب الفئة',
+                        data: [
+                            { x: 10, y: 20, r: 15 },
+                            { x: 20, y: 30, r: 25 },
+                            { x: 30, y: 40, r: 35 },
+                            { x: 40, y: 50, r: 45 },
+                            { x: 50, y: 60, r: 55 }
+                        ],
+                        backgroundColor: colors.yellow,
+                        borderColor: colors.yellow,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true
+                        },
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize charts with sample data
+        initializeCharts();
+
+        // Handle CSV file upload
+        document.getElementById('csvFile').addEventListener('change', function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                Papa.parse(file, {
+                    header: true,
+                    dynamicTyping: true,
+                    complete: function(results) {
+                        const data = results.data;
+                        updateCharts(data);
+                        updateSummaryStatistics(data);
+                        showStatusMessage('success', 'تم تحميل الملف بنجاح');
+                    },
+                    error: function() {
+                        showStatusMessage('error', 'فشل تحميل الملف');
+                    }
+                });
+            }
+        });
+
+        function updateCharts(data) {
+            // Extract data for charts
+            const dates = data.map(row => row.Date);
+            const sales = data.map(row => row.Sales);
+            const budgets = data.map(row => row.Budget);
+            const channels = data.map(row => row.Channel);
+            const campaigns = data.map(row => row.Campaign);
+            const regions = data.map(row => row.Region);
+            const categories = data.map(row => row.Category);
+
+            // Update Sales Chart
+            charts.salesChart.data.labels = dates;
+            charts.salesChart.data.datasets[0].data = sales;
+            charts.salesChart.update();
+
+            // Update Budget Chart
+            charts.budgetChart.data.datasets[0].data = budgets;
+            charts.budgetChart.update();
+
+            // Update Channels Performance Chart
+            charts.channelsChart.data.labels = channels;
+            charts.channelsChart.data.datasets[0].data = channels.map(channel => Math.floor(Math.random() * 100)); // Sample data
+            charts.channelsChart.update();
+
+            // Update Campaigns Analysis Chart
+            charts.campaignsChart.data.labels = campaigns;
+            charts.campaignsChart.data.datasets[0].data = campaigns.map(() => Math.floor(Math.random() * 100)); // Sample data
+            charts.campaignsChart.data.datasets[1].data = campaigns.map(() => Math.floor(Math.random() * 100)); // Sample data
+            charts.campaignsChart.update();
+
+            // Update Region Sales Distribution Chart
+            charts.regionChart.data.labels = regions;
+            charts.regionChart.data.datasets[0].data = regions.map(() => Math.floor(Math.random() * 100)); // Sample data
+            charts.regionChart.update();
+
+            // Update Category Performance Chart
+            charts.categoryChart.data.datasets[0].data = categories.map(category => ({
+                x: Math.floor(Math.random() * 100),
+                y: Math.floor(Math.random() * 100),
+                r: Math.floor(Math.random() * 50)
+            }));
+            charts.categoryChart.update();
+        }
+
+        function updateSummaryStatistics(data) {
+            const firstRow = data[0];
+            document.getElementById('totalSales').textContent = firstRow.Sales + ' ريال';
+            document.getElementById('conversionRate').textContent = firstRow.ConversionRate + '%';
+            document.getElementById('newCustomers').textContent = firstRow.NewCustomers;
+            document.getElementById('avgOrderValue').textContent = firstRow.AvgOrderValue + ' ريال';
+        }
+
+        function showStatusMessage(type, message) {
+            const statusMessage = document.getElementById('statusMessage');
+            statusMessage.textContent = message;
+            statusMessage.className = 'status-message ' + type;
+        }
+    </script>
+</body>
+</html>
